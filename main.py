@@ -16,7 +16,6 @@ MAX_THREADS = 5
 path = "files/"
 list_files = {}
 def download_part(server,filehash, part,total_parts):
-    print("server: ",server)
     try:
         sock = socket(AF_INET,SOCK_STREAM)
         sock.connect((server["ip"],int(server["port"])))
@@ -39,7 +38,6 @@ def readPart(hash,part,parts_num):
     f.seek(start, 1)
     data = f.read(end-start)
     f.close()
-    print(type(data))
     return data
 
 def Write(sock,data):
@@ -54,7 +52,7 @@ def Write(sock,data):
         else:
             sock.send(data[i:i+BUFF_SIZE])
             i+=BUFF_SIZE
-        time.sleep(0.1)
+        time.sleep(0.01)
 def recvall(sock):
         BUFF_SIZE = 1024
         data = b''
@@ -95,7 +93,7 @@ def startServer(port):
         print('...Conexion iniciada', addr)
         threading.Thread(target=handler, args=(clientsock, addr)).start()
 
-def getFiles():
+def getFiles(port):
     files = os.listdir(path)
     message = {"files":[]}
     mime = magic.Magic(mime=True)
@@ -105,10 +103,8 @@ def getFiles():
         hash = getHash(f)
         message["files"].append({"hash":hash,"size":size,"nombre":f,"type":mime_type})
         list_files[hash] = {"size":size,"nombre":f,"type":mime_type}
-    hostname = gethostname()
-    IPAddr = gethostbyname(hostname)
-    message["users"] = [{"ip":IPAddr,"port":"8081"}]
-    print(message)
+    IPAddr = (([ip for ip in gethostbyname_ex(gethostname())[2] if not ip.startswith("127.")] or [[(s.connect(("8.8.8.8", 53)), s.getsockname()[0], s.close()) for s in [socket(AF_INET, SOCK_DGRAM)]][0][1]]) + ["no IP found"])[0]
+    message["users"] = [{"ip":IPAddr,"port":str(port)}]
     res = requests.post(SERVER_HOST+"uploadFile/",json=message)
     if res.status_code==200:
         print("Archivos sincronizados!")
@@ -153,24 +149,25 @@ def downloadFile(hash):
                     if future_to_data[future]["user"] in users:
                         users.remove(future_to_data[future]["user"]) # Significa que no pudimos descargar del mismo y tendremos que eliminarlo de las lista de peers
                     else:
-                        print(">>>",future_to_data[future],users,"<<<")
+                        pass
                 else:
                     print("ok en el id"+str(future_to_data[future]["part"]))
                     file_parts[future_to_data[future]["part"]] = data
 
 
     if 0 in file_parts or len(users)<1:
-        return "not ok"
+        eel.showalert("El archivo %s no se pudo descargar"%res["files"][0]["nombre"])
+        return False
     with open(path+res["files"][0]["nombre"],'wb') as f:
         for i in file_parts:
             f.write(i)
-    print("Noma si se pudo xd")
-    return "ok"
+    eel.showalert("Desca exito del archivo: %s"%res["files"][0]["nombre"])
+    return True
 
 if __name__ == '__main__':
     #name = input("Nickname: ")
     port = int(input("PORT: "))
-    getFiles()
+    getFiles(port+1)
     eel.init('gui')
-    threading.Thread(target=startServer, args=(8081,)).start()
+    threading.Thread(target=startServer, args=(port+1,)).start()
     eel.start('index.html', options={"port":port})    # Start
