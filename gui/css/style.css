@@ -35,3 +35,12 @@ body > .container {
 code {
   font-size: 80%;
 }
+.bottom0.panel-group  {
+margin-bottom: 0;
+}
+
+.notifications-scroll-area {
+    height: 150px;
+	position: relative;
+	overflow: auto;
+}
